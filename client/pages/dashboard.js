@@ -11,6 +11,13 @@ export default function Dashboard({ AuthContext }) {
 
   const isAuth = async () => {
     try {
+      const allCookies = document.cookie.split(";");
+      for (let item of allCookies) {
+        if (item.startsWith("token=")) {
+          localStorage.setItem("token", item.slice(6));
+          break;
+        }
+      }
       const res = await fetch("http://localhost:5000/auth/is-verify", {
         method: "GET",
         headers: {
@@ -27,7 +34,25 @@ export default function Dashboard({ AuthContext }) {
     }
   };
 
-  const logout = () => {
+  const getCookie = (name) => {
+    return document.cookie.split(";").some((c) => {
+      return c.trim().startsWith(name + "=");
+    });
+  };
+
+  const deleteCookie = (name, path, domain) => {
+    if (getCookie(name)) {
+      document.cookie =
+        name +
+        "=" +
+        (path ? ";path=" + path : "") +
+        (domain ? ";domain=" + domain : "") +
+        ";expires=Thu, 01 Jan 1970 00:00:01 GMT";
+    }
+  };
+
+  const logout = async (cookieName) => {
+    deleteCookie("token");
     localStorage.removeItem("token");
     setIsAuthenticated(false);
   };
@@ -97,7 +122,7 @@ export default function Dashboard({ AuthContext }) {
       </footer>
       <button
         className="bg-transparent hover:bg-[#0050f3] -500 text-[#0050f3] -700 font-semibold hover:text-white py-2 px-4 border border-[#0050f3] -500 hover:border-transparent rounded my-2 px-7 mb-4 ml-40"
-        onClick={logout}
+        onClick={() => logout("token")}
       >
         Logout
       </button>

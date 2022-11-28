@@ -12,6 +12,13 @@ const Login = ({ AuthContext }) => {
 
   const isAuth = async () => {
     try {
+      const allCookies = document.cookie.split(";");
+      for (let item of allCookies) {
+        if (item.startsWith("token=")) {
+          localStorage.setItem("token", item.slice(6));
+          break;
+        }
+      }
       const res = await fetch("http://localhost:5000/auth/is-verify", {
         method: "GET",
         headers: {
@@ -27,6 +34,13 @@ const Login = ({ AuthContext }) => {
       console.error(err.message);
     }
   };
+
+  // const googleHandler = async () => {
+  //   const res = await fetch("http://localhost:5000/auth/google");
+  //   const token = await res.json();
+  //   localStorage.setItem("token", token);
+  //   setIsAuthenticated(true);
+  // };
 
   useEffect(() => {
     isAuth();
@@ -103,7 +117,7 @@ const Login = ({ AuthContext }) => {
                   />
                 </div>
 
-                <div className="flex justify-between items-center mb-6">
+                {/* <div className="flex justify-between items-center mb-6">
                   <div className="form-group form-check">
                     <input
                       type="checkbox"
@@ -123,7 +137,7 @@ const Login = ({ AuthContext }) => {
                   >
                     Forgot password?
                   </a>
-                </div>
+                </div> */}
 
                 <button
                   type="submit"
@@ -140,11 +154,12 @@ const Login = ({ AuthContext }) => {
                 </div>
 
                 <a
+                  type="button"
                   className="px-7 py-3 text-white font-medium text-sm leading-snug uppercase rounded shadow-md hover:shadow-lg focus:shadow-lg focus:outline-none focus:ring-0 active:shadow-lg transition duration-150 ease-in-out w-full flex justify-center items-center mb-3 bg-black"
-                  href="#!"
                   role="button"
                   data-mdb-ripple="true"
                   data-mdb-ripple-color="light"
+                  href="http://localhost:5000/auth/google"
                 >
                   Continue With Google
                 </a>

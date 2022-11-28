@@ -6,6 +6,8 @@ const jwtGenerator = require("../utils/jwtGenerator");
 const { validInfo, validateEmail } = require("../middleware/validInfo");
 const { application } = require("express");
 const authorise = require("../middleware/authorisation");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20");
 
 router.use(express.json());
 
@@ -85,6 +87,21 @@ router.get("/is-verify", authorise, async (req, res) => {
   } catch (err) {
     console.error(err.message);
   }
+});
+
+//GOOGLE ROUTES
+
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  })
+);
+
+router.get("/google/redirect", passport.authenticate("google"), (req, res) => {
+  const token = jwtGenerator(req.user.id);
+  res.cookie("token", token);
+  res.redirect("http://localhost:3000/dashboard");
 });
 
 module.exports = router;

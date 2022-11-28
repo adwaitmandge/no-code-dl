@@ -1,137 +1,90 @@
+const express = require("express");
 const router = require("express").Router();
-const passport = require("passport");
-const LocalStrategy = require("passport-local");
-const crypto = require("crypto");
-const bcrypt = require("bcrypt");
 const pool = require("../db");
-const { executionAsyncId } = require("async_hooks");
+const bcrypt = require("bcrypt");
+const jwtGenerator = require("../utils/jwtGenerator");
+const { validInfo, validateEmail } = require("../middleware/validInfo");
+const { application } = require("express");
+const authorise = require("../middleware/authorisation");
 
-router.post(
-  "/login/password",
-  passport.authenticate("local", {
-    successRedirect: "http:localhost:3000/dashboard",
-    failureRedirect: "http:localhost:3000/auth/login",
-  })
-);
+router.use(express.json());
 
-router.post("/logout", function (req, res, next) {
-  req.logout(function (err) {
-    if (err) {
-      return next(err);
-    }
-    res.redirect("/");
-  });
-});
+router.post("/register", validInfo, async (req, res) => {
+  try {
+    //1. DESTRUCTURE THE REQ.BODY (username, email, password)
+    const { username, password, email } = req.body;
+    console.log(username, password, email);
 
-router.get("/signup", function (req, res, next) {
-  res.json("OIHI");
-});
-
-router.post("/signup", async function (req, res, next) {
-  const { username, email, password } = req.body;
-  console.log(req.body);
-  const salt = crypto.randomBytes(16);
-  crypto.pbkdf2(
-    password,
-    salt,
-    310000,
-    32,
-    "sha256",
-    function (err, hashedPassword) {
-      if (err) {
-        return next(err);
-      }
-      pool.query(
-        "INSERT INTO users (username, email, password) VALUES ($1, $2, $3)",
-        [username, email, hashedPassword],
-        function (err) {
-          if (err) {
-            return next(err);
-          }
-          const user = {
-            id: this.lastID,
-            username: req.body.username,
-          };
-          req.login(user, function (err) {
-            if (err) {
-              return next(err);
-            }
-            res.redirect("http://localhost:3000/");
-          });
-        }
-      );
-    }
-  );
-});
-
-// router.post("/signup", async (req, res) => {
-//   const { username, password, email } = req.body;
-//   console.log(req.body);
-//   //check if the user exists
-//   const exists = await pool.query("SELECT * FROM users WHERE email=$1", [
-//     email,
-//   ]);
-//   if (exists.rows.length === 0) {
-//     //user doesn't exist
-//     const newUser = await pool.query(
-//       "INSERT INTO users(username, email, password) VALUES($1, $2, $3)",
-//       [username, email, password]
-//     );
-//     return res.json(newUser);
-//   } else {
-//     // user exists
-//     return res.json(exists.rows[0]);
-//   }
-// });
-
-passport.serializeUser(function (user, cb) {
-  process.nextTick(function () {
-    cb(null, { id: user.id, username: user.username });
-  });
-});
-
-passport.deserializeUser(function (user, cb) {
-  process.nextTick(function () {
-    return cb(null, user);
-  });
-});
-
-passport.use(
-  new LocalStrategy(function verify(username, password, cb) {
-    pool.query(
+    const newUser = await pool.query(
       "SELECT * FROM users WHERE username = $1",
-      [username],
-      function (err, row) {
-        if (err) {
-          return cb(err);
-        }
-        if (!row) {
-          return cb(null, false, {
-            message: "Incorrect username or password.",
-          });
-        }
-
-        crypto.pbkdf2(
-          password,
-          row.salt,
-          310000,
-          32,
-          "sha256",
-          function (err, hashedPassword) {
-            if (err) {
-              return cb(err);
-            }
-            if (!crypto.timingSafeEqual(row.hashed_password, hashedPassword)) {
-              return cb(null, false, {
-                message: "Incorrect username or password.",
-              });
-            }
-            return cb(null, row);
-          }
-        );
-      }
+      [username]
     );
-  })
-);
+
+    // 2. CHECK IF THE USER EXISTS
+    if (newUser.rows.length > 0) {
+      console.log("HI!!");
+      return res.status(401).send("User already exists");
+    } else {
+      //3. BCRYPT THE USER PASSWORD
+      const saltRounds = 12;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      //4. INSERT THE NEW USER INSIDE THE DATABASE
+      const newUser = await pool.query(
+        "insert into users(username, password, email) values($1, $2, $3) returning *",
+        [username, hashedPassword, email]
+      );
+      //5. GENERATING OUR JWT TOKEN
+      const token = jwtGenerator(newUser.rows[0].user_id);
+      return res.json(token);
+    }
+  } catch (err) {
+    console.error("SERVER ERROR");
+    res.status(500).send(err.message);
+  }
+});
+
+router.post("/login", validInfo, async (req, res) => {
+  try {
+    //1. DESTRUCTURE FROM REQ.BODY
+    const { email, password } = req.body;
+    console.log(email, password);
+    const foundUser = await pool.query("SELECT * FROM users WHERE email = $1", [
+      email,
+    ]);
+
+    //2. CHECK IF THE USER EXISTS
+    if (foundUser.rows.length === 0) {
+      //3. THROW ERROR IF THE USER DOES NOT EXIST
+      return res.status(401).json("INVALID CREDENTIALS");
+    } else {
+      //4. CHECK IF THE PASSWORD ENTERED IS RIGHT
+      const validPassword = await bcrypt.compare(
+        password,
+        foundUser.rows[0].password
+      );
+      //5. GENERATE A TOKEN IF THE PASSWORD ENTERED IS RIGHT
+      if (validPassword) {
+        const token = jwtGenerator(foundUser.rows[0].user_id);
+        console.log("SUCCESS!!!");
+        return res.json({ token });
+      }
+      throw new Error("INVALID CREDENTIALS");
+    }
+  } catch (err) {
+    res.status(500).send("SERVER ERROR");
+    console.error(err);
+  }
+});
+
+//We have generated a jwt token and have sent it to the client side and so everytime they make a fetch or access request to get access to a private area they are going to have to show that token to us and now we need to create a middleware that will check whether or not the token that is given to us is valid
+
+router.get("/is-verify", authorise, async (req, res) => {
+  try {
+    res.json(true);
+  } catch (err) {
+    console.error(err.message);
+  }
+});
 
 module.exports = router;

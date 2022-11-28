@@ -5,8 +5,42 @@ import styles from "../styles/Home.module.css";
 import { useContext, useEffect, useState } from "react";
 import { Router, useRouter } from "next/router";
 
-export default function Dashboard() {
+export default function Dashboard({ AuthContext }) {
   const router = useRouter();
+  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
+
+  const isAuth = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/auth/is-verify", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "jwt-token": localStorage.getItem("token"),
+        },
+      });
+      const result = await res.json();
+      console.log("result", result);
+      result === true ? setIsAuthenticated(true) : setIsAuthenticated(false);
+    } catch (err) {
+      console.log("Ohno, errro");
+      console.error(err.message);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
+  };
+
+  useEffect(() => {
+    isAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push("auth/login");
+    }
+  }, [isAuthenticated]);
 
   return (
     <div className={styles.container}>
@@ -20,11 +54,6 @@ export default function Dashboard() {
         <h1 className={styles.title}>
           Welcome to <a href="https://nextjs.org">No Code DL!</a>
         </h1>
-
-        {/* <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.tsx</code>
-        </p> */}
 
         <div className={styles.grid}>
           <Link href="/image-processing/projects/" className={styles.card}>
@@ -66,6 +95,12 @@ export default function Dashboard() {
           </span>
         </a>
       </footer>
+      <button
+        className="bg-transparent hover:bg-[#0050f3] -500 text-[#0050f3] -700 font-semibold hover:text-white py-2 px-4 border border-[#0050f3] -500 hover:border-transparent rounded my-2 px-7 mb-4 ml-40"
+        onClick={logout}
+      >
+        Logout
+      </button>
     </div>
   );
 }

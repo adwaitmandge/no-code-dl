@@ -2,12 +2,36 @@ import { GOOGLE_FONT_PROVIDER } from "next/dist/shared/lib/constants";
 import Link from "next/link";
 import { useContext, useEffect, useState } from "react";
 
-const Register = () => {
+const Register = ({ AuthContext }) => {
+  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
+
   const [input, setInput] = useState({
     email: "",
     password: "",
     username: "",
   });
+
+  const isAuth = async () => {
+    const res = await fetch("http://localhost:5000/auth/is-verify", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "jwt-token": localStorage.getItem("token"),
+      },
+    });
+    const result = await res.json();
+    result === true ? setIsAuthenticated(true) : setIsAuthenticated(false);
+  };
+
+  useEffect(() => {
+    isAuth();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated]);
 
   const submitHandler = async (e) => {
     e.preventDefault();

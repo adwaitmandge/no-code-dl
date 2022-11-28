@@ -3,11 +3,40 @@ import Link from "next/link";
 import { useContext, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
-const Login = () => {
+const Login = ({ AuthContext }) => {
+  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
   const [input, setInput] = useState({
     email: "",
     password: "",
   });
+
+  const isAuth = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/auth/is-verify", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "jwt-token": localStorage.getItem("token"),
+        },
+      });
+      const result = await res.json();
+      console.log("result", result);
+      result === true ? setIsAuthenticated(true) : setIsAuthenticated(false);
+    } catch (err) {
+      console.log("Ohno, errro");
+      console.error(err.message);
+    }
+  };
+
+  useEffect(() => {
+    isAuth();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated]);
 
   const router = useRouter();
   const changeHandler = (e) => {
@@ -17,10 +46,23 @@ const Login = () => {
   const submitHandler = async (e) => {
     try {
       e.preventDefault();
-      const res = await fetch("http://localhost:5000/auth/login/password");
-      const isValid = res.json();
-      console.log(isValid);
+      const body = input;
+      console.log(body);
+      const res = await fetch("http://localhost:5000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const token = await res.json();
+      console.log({ token });
+      if (token.token) {
+        localStorage.setItem("token", token.token);
+        setIsAuthenticated(true);
+      }
     } catch (err) {
+      console.log("INVLAID CREDENTIALS");
+      // window.location = "/auth/login";
+      router.push("/auth/login");
       console.error(err.message);
     }
   };

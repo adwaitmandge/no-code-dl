@@ -9,6 +9,32 @@ import { isJsxFragment, setTextRange } from "typescript";
 
 export default function Projects({ AuthContext }) {
   const router = useRouter();
+  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
+
+  const isAuth = async () => {
+    const res = await fetch("http://localhost:5000/auth/is-verify", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "jwt-token": localStorage.getItem("token"),
+      },
+    });
+    return await res.json();
+  };
+
+  const checkAuth = async () => {
+    const result = await isAuth();
+    if (result === true) {
+      setIsAuthenticated(true);
+      return;
+    } else {
+      router.push("/auth/login");
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
 
   console.log(router.query.project_id);
   const [id, setId] = useState(null);
@@ -575,7 +601,7 @@ export default function Projects({ AuthContext }) {
                     value={sofmax}
                     onChange={(e) => {
                       setSofmax(e.target.value);
-                      foundProject.activationLayers.sofmax = e.target.value;
+                      foundProject.activationLayer.sofmax = e.target.value;
                     }}
                   />
                 </div>

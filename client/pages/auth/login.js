@@ -3,11 +3,54 @@ import Link from "next/link";
 import { useContext, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
-const Login = () => {
+const Login = ({ AuthContext }) => {
+  const { isAuthenticated, setIsAuthenticated } = useContext(AuthContext);
   const [input, setInput] = useState({
     email: "",
     password: "",
   });
+
+  const isAuth = async () => {
+    try {
+      const allCookies = document.cookie.split(";");
+      for (let item of allCookies) {
+        if (item.startsWith("token=")) {
+          localStorage.setItem("token", item.slice(6));
+          break;
+        }
+      }
+      const res = await fetch("http://localhost:5000/auth/is-verify", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "jwt-token": localStorage.getItem("token"),
+        },
+      });
+      const result = await res.json();
+      console.log("result", result);
+      result === true ? setIsAuthenticated(true) : setIsAuthenticated(false);
+    } catch (err) {
+      console.log("Ohno, errro");
+      console.error(err.message);
+    }
+  };
+
+  // const googleHandler = async () => {
+  //   const res = await fetch("http://localhost:5000/auth/google");
+  //   const token = await res.json();
+  //   localStorage.setItem("token", token);
+  //   setIsAuthenticated(true);
+  // };
+
+  useEffect(() => {
+    isAuth();
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/dashboard");
+    }
+  }, [isAuthenticated]);
 
   const router = useRouter();
   const changeHandler = (e) => {
@@ -17,10 +60,23 @@ const Login = () => {
   const submitHandler = async (e) => {
     try {
       e.preventDefault();
-      const res = await fetch("http://localhost:5000/auth/login/password");
-      const isValid = res.json();
-      console.log(isValid);
+      const body = input;
+      console.log(body);
+      const res = await fetch("http://localhost:5000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const token = await res.json();
+      console.log({ token });
+      if (token.token) {
+        localStorage.setItem("token", token.token);
+        setIsAuthenticated(true);
+      }
     } catch (err) {
+      console.log("INVLAID CREDENTIALS");
+      // window.location = "/auth/login";
+      router.push("/auth/login");
       console.error(err.message);
     }
   };
@@ -61,7 +117,7 @@ const Login = () => {
                   />
                 </div>
 
-                <div className="flex justify-between items-center mb-6">
+                {/* <div className="flex justify-between items-center mb-6">
                   <div className="form-group form-check">
                     <input
                       type="checkbox"
@@ -81,7 +137,7 @@ const Login = () => {
                   >
                     Forgot password?
                   </a>
-                </div>
+                </div> */}
 
                 <button
                   type="submit"
@@ -98,11 +154,12 @@ const Login = () => {
                 </div>
 
                 <a
+                  type="button"
                   className="px-7 py-3 text-white font-medium text-sm leading-snug uppercase rounded shadow-md hover:shadow-lg focus:shadow-lg focus:outline-none focus:ring-0 active:shadow-lg transition duration-150 ease-in-out w-full flex justify-center items-center mb-3 bg-black"
-                  href="#!"
                   role="button"
                   data-mdb-ripple="true"
                   data-mdb-ripple-color="light"
+                  href="http://localhost:5000/auth/google"
                 >
                   Continue With Google
                 </a>

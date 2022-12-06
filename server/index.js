@@ -1,49 +1,27 @@
 const express = require("express");
-const authRoutes = require("./routes/auth");
 const app = express();
-const logger = require("morgan");
-const passport = require("passport");
-const session = require("express-session");
-const pgSession = require("connect-pg-simple")(session);
 const cors = require("cors");
-const pool = require("./db");
-require("dotenv").config();
+const registerRoutes = require("./routes/auth");
+const passport = require("passport");
+const passportSetup = require("./passport-config/passport-setup");
+const cookieSession = require("cookie-session");
+const localStorage = require("localStorage");
 
+app.use(cors());
 app.use(express.json());
+
 app.use(
-  cors({
-    origin: "http://localhost:3000",
+  cookieSession({
+    maxAge: 24 * 3600 * 1000,
+    keys: [process.env.encryptionKey],
   })
 );
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
-  res.setHeader("Access-Control-Allow-Methods", "POST, GET, PUT");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  return next();
-});
+app.use(passport.initialize());
+app.use(passport.session());
 
-const sessionConfig = {
-  store: new pgSession({
-    pool: pool,
-    tableName: "session",
-  }),
-  name: "SID",
-  secret: process.env["SECRET"],
-  resave: false,
-  saveUninitialized: true,
-  cookie: {
-    maxAge: 1000 * 60 * 60 * 24 * 7,
-    aameSite: true,
-    secure: false, // ENABLE ONLY ON HTTPS
-  },
-};
-
-app.use("/auth", authRoutes);
-app.use(session(sessionConfig));
-app.use(cors());
-
-app.use(passport.authenticate("session"));
+//Register and login Routes
+app.use("/auth", registerRoutes);
 
 app.listen("5000", () => {
   console.log("ON PORT 5000");
